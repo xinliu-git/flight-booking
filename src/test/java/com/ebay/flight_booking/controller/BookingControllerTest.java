@@ -1,33 +1,47 @@
 package com.ebay.flight_booking.controller;
 
 import com.ebay.flight_booking.model.Flight;
-import com.ebay.flight_booking.service.BookingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
 class BookingControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @TestConfiguration
+    static class TestFlightConfig {
+        @Bean
+        @Primary
+        public Map<String, Flight> initialFlights() {
+            return Map.of(
+                    "AA123",   new Flight("AA123",   150),
+                    "UA456",   new Flight("UA456",   180),
+                    "TEST001", new Flight("TEST001",   5)
+            );
+        }
+    }
 
     @Autowired
-    private BookingService bookingService;
+    private MockMvc mockMvc;
 
     private static final String URL = "/api/bookings";
 
@@ -106,9 +120,6 @@ class BookingControllerTest {
     void concurrentBookings_noOverbooking() throws Exception {
         int capacity = 5;
         int totalRequests = 10;
-        String flightNumber = "TEST001";
-
-        bookingService.addFlight(new Flight(flightNumber, capacity));
 
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch doneLatch = new CountDownLatch(totalRequests);
@@ -117,13 +128,13 @@ class BookingControllerTest {
 
         ExecutorService executor = Executors.newFixedThreadPool(totalRequests);
         String body = """
-                {"flightNumber":"%s","passengerName":"Passenger"}
-                """.formatted(flightNumber);
+                {"flightNumber":"TEST001","passengerName":"Passenger"}
+                """;
 
         for (int i = 0; i < totalRequests; i++) {
             executor.submit(() -> {
                 try {
-                    startLatch.await(); // all threads start at the same moment
+                    startLatch.await();
                     MvcResult result = mockMvc.perform(post(URL)
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(body))
@@ -139,10 +150,11 @@ class BookingControllerTest {
             });
         }
 
-        startLatch.countDown(); // release all threads simultaneously
-        doneLatch.await();      // wait for all to finish
+        startLatch.countDown();
+        boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
         executor.shutdown();
 
+        assertThat(completed).as("all threads must finish within timeout").isTrue();
         assertThat(created.get())
                 .as("successful bookings must equal flight capacity")
                 .isEqualTo(capacity);

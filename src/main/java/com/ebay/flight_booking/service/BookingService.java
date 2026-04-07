@@ -5,17 +5,17 @@ import com.ebay.flight_booking.model.Flight;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class BookingService {
 
-    private final ConcurrentHashMap<String, Flight> flights = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Flight> flights;
 
-    public BookingService() {
-        flights.put("AA123", new Flight("AA123", 150));
-        flights.put("UA456", new Flight("UA456", 180));
+    public BookingService(Map<String, Flight> initialFlights) {
+        this.flights = new ConcurrentHashMap<>(initialFlights);
     }
 
     /**
@@ -43,10 +43,6 @@ public class BookingService {
             }
             return result;
         }
-    }
-
-    public void addFlight(Flight flight) {
-        flights.put(flight.getFlightNumber(), flight);
     }
 
     public static class FlightNotFoundException extends RuntimeException {

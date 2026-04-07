@@ -93,3 +93,24 @@ curl -X POST http://localhost:8080/api/bookings \
 |--------|----------|
 | AA123  | 150      |
 | UA456  | 180      |
+
+
+## Quick Manually Fix
+Claude add test code (addFlight) in production service, I need to eliminate test-only method from production service
+
+- Removed addFlight() from BookingService as it was only used for tests
+- Prevented leakage of test concerns into production code
+- Recommended using @TestConfiguration or test-specific setup for initializing data
+
+Improves code integrity and enforces proper separation between production and test logic.
+
+
+## Improvements with more time
+1.	Global exception handling
+Move @ExceptionHandler from controller to a centralized @ControllerAdvice to avoid duplication and handle 400/404/409/500 consistently.
+
+2.	Standardized error response
+Replace ad-hoc Map.of(...) with a unified error schema (timestamp, status, path), or use Spring’s built-in ProblemDetail.
+
+3.	Scalability of thread safety
+synchronized only works in a single JVM. For multi-instance deployment, use database optimistic locking (@Version) or distributed locks (e.g., Redis).
