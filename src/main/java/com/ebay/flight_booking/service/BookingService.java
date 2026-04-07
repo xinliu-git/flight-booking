@@ -45,6 +45,10 @@ public class BookingService {
         }
     }
 
+    public void addFlight(Flight flight) {
+        flights.put(flight.getFlightNumber(), flight);
+    }
+
     public static class FlightNotFoundException extends RuntimeException {
         public FlightNotFoundException(String flightNumber) {
             super("Flight not found: " + flightNumber);
